@@ -2,8 +2,9 @@
 
 class Curl {
 
-    public static function run($is_get=1, $url, $post=array(), $CA=false){
+    public static function run($is_get=1, $url, $post=array(), $CA=false, $proxy=false){
         $cookieFile = dirname(__FILE__).'/cookies/'.parse_url($url)['host'].'.txt';
+        $proxy = "127.0.0.1:7070";
         $arrHeader = array(
             'Accept-Language: zh-cn',
             'Accept-Encoding:gzip,deflate',
@@ -26,6 +27,11 @@ class Curl {
         $curl = curl_init(); // 启动一个CURL会话
         curl_setopt($curl,CURLOPT_HTTPHEADER, $arrHeader);//模似请求头
         curl_setopt($curl, CURLOPT_URL, $url); // 要访问的地址
+        if($proxy) {
+            // 设置代理
+            curl_setopt($curl, CURLOPT_PROXY, $proxy);
+            curl_setopt($curl, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5_HOSTNAME);
+        }
         if ($SSL && $CA) {
             curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);   // 只信任CA颁布的证书
             curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);

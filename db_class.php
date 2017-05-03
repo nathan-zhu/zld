@@ -13,7 +13,7 @@ class db {
         $this->host = 'localhost'; //hostname
         $this->user = 'root'; //username
         $this->password = 'mariadb'; //password
-        $this->baseName = 'lmh0319'; //name of your database
+        $this->baseName = 'lmh0425'; //name of your database
         //$this->baseName = 'lmhdb8'; //name of your database
         $this->port = '3306';
         $this->debug = true;
