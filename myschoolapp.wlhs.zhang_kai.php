@@ -29,7 +29,7 @@ https://wlhs.myschoolapp.com/api/datadirect/ParentStudentUserPerformance/?userId
 class Wlhs_Zhangkai
 {
     const Username = 'chensh';
-    const Password = 'Kaiwl18';
+    const Password = 'Kaiwl@18';
     const School = 'wlhs';
     const School_Name = 'Wisconsin Lutheran High School';
     const UID = 35;
@@ -53,6 +53,8 @@ class Wlhs_Zhangkai
     protected $drupalUid;
     protected $currentTerm;
     protected $markingPeroidIdUrl;
+    protected $currentSemester;
+    protected $allTerms;
 
     public function __construct()
     {
@@ -86,13 +88,13 @@ class Wlhs_Zhangkai
     {
         // 登录
         $this->authLogin();
-        // // 抓取考勤
-        $this->curlAttendance();
         /** 抓取课程 
          * firt time will put parameter with all to get all data $this->curlCourse('All');.
          * then will get empty parameter, only catch current semester data.
          **/
         $this->curlCourse();
+        // // 抓取考勤
+        $this->curlAttendance();
         // // 输出
         //$this->output();
     }
@@ -193,8 +195,9 @@ class Wlhs_Zhangkai
                                 $this->arrDuration[$key][$i] = $termList;
                                 //CurrentInd is current term value, after it will get empty course;
                                 if ($arr['CurrentInd']) {
-                                    //get current term name
-                                    $this->currentTerm = $arr['DurationDescription'];
+                                    //get current semester name and id
+                                    $this->currentSemester['sname'] = $arr['DurationDescription'];
+                                    $this->currentSemester['sid'] = $arr['DurationId'];
                                     break;
                                 }
                             }
@@ -231,7 +234,9 @@ class Wlhs_Zhangkai
                                     'durationList='.$durationId,
                                     'markingPeriodId='.$mValue['MarkingPeriodId'],
                                 );
-                                $coursesUrls[] = $this->courseUrl . '?' . implode('&', $arrParam);
+                                //get all courses and related term data
+                                $coursesUrls[$mValue['MarkingPeriodId']] = $this->courseUrl . '?' . implode('&', $arrParam);
+                                $this->allTerms[$mValue['MarkingPeriodId']] = $mValue['MarkingPeriodDescription'];                                
                                 //exit loop after get current peroid.
                                 if($mValue['CurrentMarkingPeriod']) {
                                     break;
@@ -247,6 +252,7 @@ class Wlhs_Zhangkai
                         foreach($markingPeriodId[$durationId] as $mData) {
                             if($mData['CurrentMarkingPeriod']) {
                                 $periodId = $mData['MarkingPeriodId'];
+                                $this->currentTerm = $this->allTerms[$periodId] = $mData['MarkingPeriodDescription'];                                
                                 $arrParam = array(
                                     'userId='.$userId,
                                     'persona='.$this->retArr[$key]['personaId'],
@@ -255,7 +261,7 @@ class Wlhs_Zhangkai
                                     'durationList='.$durationId,
                                     'markingPeriodId='. $periodId,
                                 );
-                                $coursesUrls[] = $this->courseUrl . '?' . implode('&', $arrParam);
+                                $coursesUrls[$periodId] = $this->courseUrl . '?' . implode('&', $arrParam);
                             }
                         }
                     }
@@ -264,11 +270,13 @@ class Wlhs_Zhangkai
             // var_dump($coursesUrls);
             //loop course summary url to get grade summary data 
             //and each grade current details
-            foreach ($coursesUrls as $Curl) {
+            foreach ($coursesUrls as $termKey => $Curl) {
                 $ret = self::curl(1, $Curl);
                 if ($ret) {
                     // 科目明细
                     foreach ($ret as &$arrData) {
+                        //get grade symbol from average of course
+                        $scores = self::get_gpa_grade($arrData['cumgrade']);
                         //check existing grade to get grade status
                         $grade_status = self::get_last_summary_grade($this->drupalUid, $userId, $arrData['sectionid'], $arrData['cumgrade'], $arrData['currentterm'], $this->gradeLevel, $this->bdd);
                         
@@ -299,12 +307,12 @@ class Wlhs_Zhangkai
                             "'. $arrData['groupownername'] .'",
                             "'. $arrData['groupowneremail'] .'",
                             "'. $arrData['cumgrade'] .'",
-                            "NULL",
+                            "'. $scores['grade'] .'",
                             "'. $grade_status .'",
                             "'. time() .'",
                             '.$arrData['DurationId'].',
                             '.$arrData['markingperiodid'].',
-                            "'. $arrData['currentterm'] .'",
+                            "'. $this->allTerms[$termKey] .'",
                             "'. $this->gradeLevel .'",
                             "'. self::School_Name .'"
                           )';
@@ -378,7 +386,7 @@ class Wlhs_Zhangkai
                                 ". $arrData['markingperiodid'] .",
                                 '". $recentscore ."',
                                 '". $recentscore_json ."',
-                                '". $arrData['currentterm'] ."',
+                                '". $this->allTerms[$termKey] ."',
                                 '". $this->gradeLevel."',
                                 '". self::School_Name ."',
                                 ".time()."
@@ -426,26 +434,26 @@ class Wlhs_Zhangkai
                 
                 //absent summary into db
                 $query = "INSERT INTO sinica_attendance_summary (
-                        uid, 
-                        studentid, 
-                        excuse_category_id, 
-                        category_description, 
-                        excuse_count, 
-                        term, 
-                        gradeyear,
-                        schoolname,
-                        createtime
-                    ) VALUES (
-                        ". $this->drupalUid .",
-                        ". $this->userId .",
-                        ". $arrData['excuse_category_id'] .",
-                        '". $arrData['category_description'] ."',
-                        ". $arrData['excuse_count'] .",
-                        '". $this->currentTerm."',
-                        '". $this->gradeLevel ."',
-                        '". self::School_Name ."',
-                        ". time() ."
-                    )";
+                    uid, 
+                    studentid, 
+                    excuse_category_id, 
+                    category_description, 
+                    excuse_count, 
+                    term, 
+                    gradeyear,
+                    schoolname,
+                    createtime
+                ) VALUES (
+                    ". $this->drupalUid .",
+                    ". $this->userId .",
+                    ". $arrData['excuse_category_id'] .",
+                    '". $arrData['category_description'] ."',
+                    ". $arrData['excuse_count'] .",
+                    '". $this->currentTerm."',
+                    '". $this->gradeLevel ."',
+                    '". self::School_Name ."',
+                    ". time() ."
+                )";
                 $this->bdd->execute($query);
 
                 //prepare each attendance type table header
@@ -672,6 +680,68 @@ class Wlhs_Zhangkai
         }
         return $mPI;
     }
+
+    public function get_gpa_grade($score) {
+        $data['grade'] = '';
+        $data['gpa'] = '';
+        if(!empty($score)) {
+            if($score >= 97) {
+                $grade = 'A+';
+                $gpa = '4.0';
+            }
+            elseif ($score >=93 && $score < 97) {
+                $grade = 'A';
+                $gpa = '4.0';
+            }
+            elseif ($score >= 90 && $score < 93) {
+                $grade = 'A-';
+                $gpa = '3.7';
+            }
+            elseif ($score >= 87 && $score < 90) {
+                $grade = 'B+';
+                $gpa = '3.3';
+            }
+            elseif ($score >= 83 && $score < 87) {
+                $grade = 'B';
+                $gpa = '3.0';
+            }
+            elseif ($score >= 80 && $score < 83) {
+                $grade = 'B-';
+                $gpa = '2.7';
+            }
+            elseif ($score >= 77 && $score < 80) {
+                $grade = 'C+';
+                $gpa = '2.3';
+            }
+            elseif ($score >= 73 && $score < 77) {
+                $grade = 'C';
+                $gpa = '2.0';
+            }
+            elseif ($score >= 70 && $score < 73) {
+                $grade = 'C-';
+                $gpa = '1.7';
+            }
+            elseif ($score >= 67 && $score < 70) {
+                $grade = 'D+';
+                $gpa = '1.3';
+            }
+            elseif ($score >= 65 && $score < 67) {
+                $grade = 'D';
+                $gpa = '1.0';
+            }
+            else {
+                $grade = 'F';
+                $gpa = '0.0';
+            }
+            // elseif ($score >= 60 && $score < 64) {
+            //     $grade = 'D-';
+            //     $gpa = '0.7';
+            // }
+            $data['grade'] = $grade;
+            $data['gpa'] = $gpa;
+        }
+        return $data;
+    }    
 }
 
 $obj = new Wlhs_Zhangkai();

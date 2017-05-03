@@ -253,7 +253,7 @@ class Capehenrycollegiate_Zhangziyao
                     }
                 }
             }
-            var_dump($coursesUrls);
+            //var_dump($coursesUrls);
             var_dump($this->currentTerm);
             //loop course summary url to get grade summary data 
             //and each grade current details
@@ -262,6 +262,8 @@ class Capehenrycollegiate_Zhangziyao
                 if ($ret) {
                     // 科目明细
                     foreach ($ret as &$arrData) {
+                        //get grade symbol from average of course
+                        $scores = self::get_gpa_grade($arrData['cumgrade']);
                         //check existing grade to get grade status
                         $grade_status = self::get_last_summary_grade($this->drupalUid, $userId, $arrData['sectionid'], $arrData['cumgrade'], $arrData['currentterm'], $this->gradeLevel, $this->bdd);
                         
@@ -292,7 +294,7 @@ class Capehenrycollegiate_Zhangziyao
                             "'. $arrData['groupownername'] .'",
                             "'. $arrData['groupowneremail'] .'",
                             "'. $arrData['cumgrade'] .'",
-                            "NULL",
+                            "'. $scores['grade'] .'",
                             "'. $grade_status .'",
                             "'. time() .'",
                             '.$arrData['DurationId'].',
@@ -664,6 +666,68 @@ class Capehenrycollegiate_Zhangziyao
             $i++;
         }
         return $mPI;
+    }
+
+    public function get_gpa_grade($score) {
+        $data['grade'] = '';
+        $data['gpa'] = '';
+        if(!empty($score)) {
+            if($score >= 97) {
+                $grade = 'A+';
+                $gpa = '4.0';
+            }
+            elseif ($score >=93 && $score < 97) {
+                $grade = 'A';
+                $gpa = '4.0';
+            }
+            elseif ($score >= 90 && $score < 93) {
+                $grade = 'A-';
+                $gpa = '3.7';
+            }
+            elseif ($score >= 87 && $score < 90) {
+                $grade = 'B+';
+                $gpa = '3.3';
+            }
+            elseif ($score >= 83 && $score < 87) {
+                $grade = 'B';
+                $gpa = '3.0';
+            }
+            elseif ($score >= 80 && $score < 83) {
+                $grade = 'B-';
+                $gpa = '2.7';
+            }
+            elseif ($score >= 77 && $score < 80) {
+                $grade = 'C+';
+                $gpa = '2.3';
+            }
+            elseif ($score >= 73 && $score < 77) {
+                $grade = 'C';
+                $gpa = '2.0';
+            }
+            elseif ($score >= 70 && $score < 73) {
+                $grade = 'C-';
+                $gpa = '1.7';
+            }
+            elseif ($score >= 67 && $score < 70) {
+                $grade = 'D+';
+                $gpa = '1.3';
+            }
+            elseif ($score >= 65 && $score < 67) {
+                $grade = 'D';
+                $gpa = '1.0';
+            }
+            else {
+                $grade = 'F';
+                $gpa = '0.0';
+            }
+            // elseif ($score >= 60 && $score < 64) {
+            //     $grade = 'D-';
+            //     $gpa = '0.7';
+            // }
+            $data['grade'] = $grade;
+            $data['gpa'] = $gpa;
+        }
+        return $data;
     }
 }
 
